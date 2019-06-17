@@ -1,5 +1,5 @@
 {
-  "name": "ui-scaffold-pkbrowser",
+  "name": "ui-scaffold-pkchooser",
   "description": "A UI for the PG Connected Laundry Demo",
   "private": true,
   "scripts": {
