@@ -1,48 +1,32 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Card, CardBody, Clock, Row, Col, Button } from '@nio/ui-kit';
+import { Card, CardBody, Row, Col } from '@nio/ui-kit';
+import stringify from 'json-stringify-pretty-compact';
 
 export default class Page extends React.Component {
-  state = { currentTime: new Date(), historicalTime: [], brewedTime: new Date(), historicalBrewedTime: [] };
+  state = { topics: {} };
 
   componentDidMount = () => {
     const { pkClient } = this.props;
-    pkClient.addBrewer('ui_scaffold.example_brew', brewer => setInterval(() => brewer.brewJSON([{ time: new Date() }]), 1000));
-    pkClient.addPatron('ui_scaffold.example_brew', patron => patron.on('message', this.writeDataToState));
-    pkClient.addBrewer('ui_scaffold.example_brew2', brewer => this.brewer = brewer);
-    pkClient.addPatron('ui_scaffold.example_brew2', patron => patron.on('message', this.writeDataToState2));
+    pkClient.addPatron('*.**', patron => patron.on('message', this.writeDataToState));
   };
 
   componentWillUnmount = () => {
     if (this.pkClient) this.pkClient.disconnect();
   };
 
-  writeDataToState = (data) => {
-    const { historicalTime } = this.state;
+  writeDataToState = (data, { topic, from }) => {
+    const { topics } = this.state;
     const json = new TextDecoder().decode(data);
-    const { time } = Array.isArray(JSON.parse(json)) ? JSON.parse(json)[0] : JSON.parse(json);
-    const currentTime = new Date(time);
-    historicalTime.unshift(currentTime.toLocaleString());
-    historicalTime.splice(6, 1);
-    this.setState({ currentTime, historicalTime });
-  };
-
-  writeDataToState2 = (data) => {
-    const { historicalBrewedTime } = this.state;
-    const json = new TextDecoder().decode(data);
-    const { newBrewedTime } = Array.isArray(JSON.parse(json)) ? JSON.parse(json)[0] : JSON.parse(json);
-    const brewedTime = new Date(newBrewedTime);
-    historicalBrewedTime.unshift(brewedTime.toLocaleString());
-    historicalBrewedTime.splice(4, 1);
-    this.setState({ brewedTime, historicalBrewedTime });
-  };
-
-  brewCurrentTimestamp = () => {
-    this.brewer.brewJSON([{ newBrewedTime: new Date() }]);
+    const newData = Array.isArray(JSON.parse(json)) ? JSON.parse(json)[0] : JSON.parse(json);
+    newData.from = from;
+    if (!topics[topic]) topics[topic] = [];
+    topics[topic].unshift(newData);
+    this.setState({ topics });
   };
 
   render = () => {
-    const { currentTime, historicalTime, brewedTime, historicalBrewedTime } = this.state;
+    const { topics } = this.state;
 
     return (
       <Card>
@@ -51,59 +35,20 @@ export default class Page extends React.Component {
           Sending signals to and receiving signals from nio services using the Pubkeeper javascript client.
           <hr />
           <Row>
-            <Col md="4">
-              <b>The Pubkeeper Provider is a HoC that uses React&apos;s Context API to:</b>
-              <ul>
-                <li>Connect to the Pubkeeper Server</li>
-                <li>Publish the time every second to <i>ui_scaffold.example_brew</i></li>
-                <li>Inject the connected pkClient via the <i>withPubkeeper</i> method</li>
-              </ul>
-            </Col>
-            <Col xs="12" className="d-inline-block d-md-none">
-              <hr />
-            </Col>
-            <Col md="4">
-              <b>The left side uses the pkClient to:</b>
-              <ul>
-                <li>Create a Patron of <i>ui_scaffold.example_brew</i></li>
-                <li>Assign inbound signals on that topic to an event handler <i>writeDataToState</i></li>
-                <li>Update the Clock and historical array based on updated local state</li>
-              </ul>
-            </Col>
-            <Col xs="12" className="d-inline-block d-md-none">
-              <hr />
-            </Col>
-            <Col md="4">
-              <b>The right side uses the pkClient to:</b>
-              <ul>
-                <li>Create a new Brewer <i>and</i> new Patron for topic <i>ui_scaffold.example_brew2</i></li>
-                <li>Brew the current time when you click the button</li>
-                <li>Assign inbound signals on that topic to an event handler <i>writeDataToState2</i></li>
-              </ul>
-            </Col>
-          </Row>
-          <hr className="my-3" />
-          <Row>
-            <Col md="3" sm="6" className="text-center mb-3 text-nowrap">
-              <Clock value={currentTime} />
-            </Col>
-            <Col md="3" sm="6">
-              <div id="demo_output">
-                {historicalTime && historicalTime.map(h => (<div key={h}>{h}</div>))}
-              </div>
-            </Col>
-            <Col xs="12" className="d-inline-block d-md-none">
-              <hr />
-            </Col>
-            <Col md="3" sm="6" className="text-center mb-3 text-nowrap">
-              <Clock value={brewedTime} />
-            </Col>
-            <Col md="3" sm="6">
-              <Button block color="primary" onClick={() => this.brewCurrentTimestamp()} className="text-nowrap">Brew Current Time</Button>
-              <div id="demo_output_2">
-                {historicalBrewedTime && historicalBrewedTime.map((h, i) => (<div key={i}>{h}</div>))}
-              </div>
-            </Col>
+            {Object.keys(topics).map(topic => (
+              <Col md="4" key={topic} className="mb-3">
+                <b>{topic} ({topics[topic].length})</b>
+                <Card>
+                  <CardBody className="data-holder">
+                    {topics[topic].map((topicdata, i) => (
+                      <div key={i}>
+                        {stringify(topicdata)}
+                      </div>
+                    ))}
+                  </CardBody>
+                </Card>
+              </Col>
+            ))}
           </Row>
         </CardBody>
       </Card>
